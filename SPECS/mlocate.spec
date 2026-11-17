@@ -3,7 +3,7 @@
 Summary: An utility for finding files by name
 Name: mlocate
 Version: 0.26
-Release: 30%{?dist}
+Release: 31%{?dist}
 License: GPLv2
 URL: https://fedorahosted.org/mlocate/
 Source0: https://fedorahosted.org/releases/m/l/mlocate/mlocate-%{version}.tar.xz
@@ -11,13 +11,16 @@ Source1: updatedb.conf
 Source2: mlocate-run-updatedb
 Source3: mlocate-updatedb.service
 Source4: mlocate-updatedb.timer
-Requires(pre): shadow-utils
+Source5: mlocate-sysusers.conf
+Source6: mlocate-tmpfiles.conf
 Requires(post): grep, sed
 # standard systemd requires
 %{?systemd_requires}
 BuildRequires: make
 BuildRequires: systemd
 BuildRequires: gcc
+BuildRequires: systemd-rpm-macros
+%{?sysusers_requires_compat}
 Provides: bundled(gnulib)
 Obsoletes: slocate <= 2.7-30
 
@@ -44,6 +47,8 @@ install -p -m 644 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/updatedb.conf
 install -D -p -m 750 %{SOURCE2} $RPM_BUILD_ROOT%{_libexecdir}/mlocate-run-updatedb
 install -D -p -m 644 %{SOURCE3} $RPM_BUILD_ROOT%{_unitdir}/mlocate-updatedb.service
 install -D -p -m 644 %{SOURCE4} $RPM_BUILD_ROOT%{_unitdir}/mlocate-updatedb.timer
+install -D -p -m 644 %{SOURCE5} $RPM_BUILD_ROOT%{_sysusersdir}/mlocate.conf
+install -D -p -m 644 %{SOURCE6} $RPM_BUILD_ROOT%{_tmpfilesdir}/mlocate.conf
 
 # %%ghost semantics is so stupid
 touch $RPM_BUILD_ROOT%{_localstatedir}/lib/mlocate/mlocate.db
@@ -51,8 +56,7 @@ touch $RPM_BUILD_ROOT%{_localstatedir}/lib/mlocate/mlocate.db
 %find_lang mlocate
 
 %pre
-getent group slocate >/dev/null || groupadd -g 21 -r -f slocate
-exit 0
+%sysusers_create_compat %{SOURCE5}
 
 %post
 if /bin/grep -q '^[^#]*DAILY_UPDATE' %{_sysconfdir}/updatedb.conf; then
@@ -90,10 +94,16 @@ systemctl start mlocate-updatedb.timer
 %{_libexecdir}/mlocate-run-updatedb
 %{_bindir}/updatedb
 %{_mandir}/man*/*
+%{_sysusersdir}/mlocate.conf
+%{_tmpfilesdir}/mlocate.conf
 %dir %attr(0750,root,slocate) %{_localstatedir}/lib/mlocate
 %ghost %attr(0640,root,slocate) %{_localstatedir}/lib/mlocate/mlocate.db
 
 %changelog
+* Mon Mar 09 2026 Michal Sekletar <msekleta@redhat.com> - 0.26-31
+- Add systemd-sysusers support (RHEL-104649)
+- Add systemd-tmpfiles support (RHEL-104663)
+
 * Mon Aug 09 2021 Mohan Boddu <mboddu@redhat.com> - 0.26-30
 - Rebuilt for IMA sigs, glibc 2.34, aarch64 flags
   Related: rhbz#1991688
